@@ -19,11 +19,13 @@ def get_model_and_tokenizer(
 ):
     model_class = getattr(transformers, model_name)
     config = model_class.config_class.from_pretrained(model_type, num_labels=num_classes)
+    config.attn_implementation = "eager"
     model = model_class.from_pretrained(
         pretrained_model_name_or_path=None,
         config=huggingface_config_path or config,
         state_dict=state_dict,
         local_files_only=huggingface_config_path is not None,
+        attn_implementation="eager",
     )
     tokenizer = getattr(transformers, tokenizer_name).from_pretrained(
         huggingface_config_path or model_type,

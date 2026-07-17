@@ -1,87 +1,122 @@
 import os
-import random
 import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from detoxify import Detoxify
 
-app = FastAPI(title="BERT Toxicity Explainer")
+app = FastAPI(title="BERT Toxicity & Attention Explainer")
 
-# Determine device (CUDA if available, otherwise CPU)
+# Device configuration
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Initializing Detoxify model on device: {device}")
+print(f"Server initialized. Default device: {device}")
+
+# Global cache for loaded Detoxify models to prevent reloading overhead
+models_cache = {}
+
+def get_model(model_name: str):
+    """
+    Loads and caches the specified Detoxify model.
+    Supported types: 'original', 'unbiased', 'multilingual', 'original-small', 'unbiased-small'
+    """
+    if model_name not in models_cache:
+        print(f"Loading model '{model_name}' on {device}...")
+        try:
+            # Detoxify loads model, tokenizer, and config.
+            # Local modifications to detoxify.py ensure attn_implementation="eager" is used.
+            models_cache[model_name] = Detoxify(model_name, device=device)
+            print(f"Model '{model_name}' loaded successfully on {device}.")
+        except Exception as e:
+            print(f"Failed to load model '{model_name}' on {device}: {e}. Trying CPU...")
+            models_cache[model_name] = Detoxify(model_name, device="cpu")
+            print(f"Model '{model_name}' loaded successfully on CPU.")
+    return models_cache[model_name]
+
+# Preload default model on startup
 try:
-    detoxify_model = Detoxify("original", device=device)
-    print("Detoxify model loaded successfully.")
+    get_model("original")
 except Exception as e:
-    print(f"Error loading model on {device}: {e}. Falling back to CPU...")
-    detoxify_model = Detoxify("original", device="cpu")
-    print("Detoxify model loaded successfully on CPU.")
+    print(f"Startup preloading failed: {e}")
 
 class AnalysisRequest(BaseModel):
     text: str
+    model_name: str = "original"
+    layer: int = 11
+    head: int = -1 # -1 means average all heads
 
-def generate_attention_matrix(tokens):
+@torch.no_grad()
+def extract_predictions_and_attentions(model_instance, text, layer_idx, head_idx):
     """
-    Generates a mock attention matrix for visual explanation.
-    Ensures self-attention (diagonal) is strong, CLS and SEP tokens have standard weights,
-    and semantic relationships are simulated realistically.
+    Runs model inference and extracts actual predictions, WordPiece tokens, and real
+    attention weights for the specified layer and head.
     """
-    n = len(tokens)
-    matrix = []
-    for i in range(n):
-        row = [0.0] * n
-        # Self-attention gets a higher base score (usually words pay attention to themselves)
-        row[i] = 0.4
+    # 1. Prepare inputs
+    inputs = model_instance.tokenizer(text, return_tensors="pt", truncation=True, padding=True).to(model_instance.model.device)
+    
+    # 2. Forward pass with attention weights tracking
+    outputs = model_instance.model(**inputs, output_attentions=True)
+    logits = outputs[0]
+    attentions = outputs.attentions  # Tuple of shape: [batch, heads, seq_len, seq_len]
+    
+    # 3. Calculate predictions
+    scores = torch.sigmoid(logits).cpu().squeeze(0)
+    
+    # If it is a batch of inputs (should not be here, but just in case), handle shapes
+    if len(scores.shape) > 1:
+        scores = scores[0]
         
-        # CLS and SEP get a baseline attention representing global aggregation/boundaries
-        row[0] += 0.15
-        row[-1] += 0.05
+    predictions = {}
+    for i, class_name in enumerate(model_instance.class_names):
+        predictions[class_name] = float(scores[i])
         
-        # Distribute remaining weights with random variations to look realistic
-        for j in range(n):
-            if i == j:
-                continue
-            # Give slightly higher weight to adjacent tokens (local context)
-            if abs(i - j) == 1:
-                row[j] += 0.15
-            else:
-                row[j] += random.uniform(0.01, 0.08)
-                
-        # Normalize so the row sums to exactly 1.0 (representing attention softmax output)
-        total_weight = sum(row)
-        row = [w / total_weight for w in row]
-        matrix.append(row)
-    return matrix
+    # 4. Extract token names
+    input_ids = inputs["input_ids"][0].tolist()
+    tokens = model_instance.tokenizer.convert_ids_to_tokens(input_ids)
+    
+    # 5. Extract attention matrix
+    num_layers = len(attentions)
+    layer_idx = max(0, min(layer_idx, num_layers - 1))
+    
+    # shape: [num_heads, seq_len, seq_len]
+    layer_attn = attentions[layer_idx][0]
+    num_heads = layer_attn.shape[0]
+    
+    if head_idx == -1:
+        # Average attention weights across all heads
+        attn_matrix = layer_attn.mean(dim=0)
+    else:
+        # Extract a specific head's attention matrix
+        head_idx = max(0, min(head_idx, num_heads - 1))
+        attn_matrix = layer_attn[head_idx]
+        
+    attention_matrix = attn_matrix.cpu().tolist()
+    
+    return predictions, tokens, attention_matrix, num_layers, num_heads
 
 @app.post("/analyze")
 async def analyze(request: AnalysisRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Input text cannot be empty")
-    
+        
     try:
-        # 1. Run predictions using the Detoxify package
-        predictions = detoxify_model.predict(request.text)
+        # Load or retrieve model from cache
+        model_instance = get_model(request.model_name)
         
-        # Convert prediction values to standard Python floats for JSON serialization
-        formatted_predictions = {}
-        for key, val in predictions.items():
-            formatted_predictions[key] = float(val)
-            
-        # 2. Extract tokens from HuggingFace tokenizer
-        # Tokenizer encode returns the sequence including special tokens [CLS] and [SEP]
-        encoded = detoxify_model.tokenizer.encode(request.text, truncation=True, max_length=512)
-        tokens = detoxify_model.tokenizer.convert_ids_to_tokens(encoded)
-        
-        # 3. Generate attention matrix corresponding to the token sequence
-        attention_matrix = generate_attention_matrix(tokens)
+        # Extract Jigsaw ratings and actual attention weights
+        preds, tokens, attn_matrix, num_layers, num_heads = extract_predictions_and_attentions(
+            model_instance,
+            request.text,
+            request.layer,
+            request.head
+        )
         
         return {
-            "predictions": formatted_predictions,
+            "predictions": preds,
             "architecture": {
                 "tokens": tokens,
-                "attention_matrix": attention_matrix
+                "attention_matrix": attn_matrix,
+                "num_layers": num_layers,
+                "num_heads": num_heads
             }
         }
     except Exception as e:
@@ -91,7 +126,6 @@ async def analyze(request: AnalysisRequest):
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    # Read and serve the index.html template directly
     template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
     if not os.path.exists(template_path):
         raise HTTPException(status_code=404, detail="Template index.html not found")
