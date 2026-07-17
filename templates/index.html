@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BERT Toxicity & Attention Explainer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Outfit and Plus Jakarta Sans -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            heading: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            dark: {
+              950: '#030712',
+              900: '#0b0f19',
+              800: '#151c2c',
+              700: '#1f293d',
+              600: '#2d3d5a',
+            },
+            accent: {
+              purple: '#8b5cf6',
+              pink: '#ec4899',
+              blue: '#3b82f6',
+              red: '#f43f5e',
+              emerald: '#10b981',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at top right, #1e1b4b 0%, #030712 60%);
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0f19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f293d;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #8b5cf6;
+    }
+    /* Matrix Cell Rotation */
+    .col-label {
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+      white-space: nowrap;
+    }
+    /* Glassmorphism utility */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-12">
+  <!-- Top Navigation / Banner -->
+  <header class="border-b border-slate-800/80 bg-dark-950/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-accent-purple to-accent-pink flex items-center justify-center shadow-lg shadow-accent-purple/20">
+          <span class="font-heading font-extrabold text-lg text-white">B</span>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold font-heading bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">BERT Toxicity Explainer</h1>
+          <p class="text-xs text-slate-400 font-medium">Interactive Deep Learning Visualization</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 text-xs bg-dark-800/90 border border-slate-700/60 rounded-full px-4 py-1.5 font-semibold text-slate-300">
+        <span class="h-2 w-2 rounded-full bg-accent-emerald animate-pulse"></span>
+        Detoxify BERT (original) Loaded
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Left Column: Input and Toxicity Predictions -->
+    <div class="lg:col-span-5 flex flex-col gap-6">
+      <!-- Input Panel -->
+      <section class="glass-panel rounded-2xl p-6 shadow-xl">
+        <h2 class="text-lg font-bold font-heading mb-4 text-slate-200 flex items-center gap-2">
+          <span>📝</span> Text Input Analyzer
+        </h2>
+        <div class="mb-4">
+          <label for="text-input" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Sentence to Evaluate</label>
+          <textarea 
+            id="text-input" 
+            rows="4" 
+            class="w-full bg-dark-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple focus:border-transparent transition placeholder-slate-500"
+            placeholder="Type a sentence here, or choose one of the preset options below..."
+          >This is a wonderful teaching aid, and the implementation is clean.</textarea>
+        </div>
+
+        <!-- Presets -->
+        <div class="mb-5">
+          <span class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Presentation Presets</span>
+          <div class="grid grid-cols-1 gap-2">
+            <button 
+              onclick="loadPreset('This is a wonderful teaching aid, and the implementation is clean.')"
+              class="w-full text-left text-xs bg-dark-800 hover:bg-dark-700/80 border border-slate-700/50 rounded-lg p-2.5 transition flex justify-between items-center"
+            >
+              <span class="truncate pr-2">🟢 "This is a wonderful teaching aid..."</span>
+              <span class="text-[10px] text-accent-emerald font-semibold bg-accent-emerald/10 px-2 py-0.5 rounded-full flex-shrink-0">Safe</span>
+            </button>
+            <button 
+              onclick="loadPreset('I think your argument lacks facts and is slightly ridiculous.')"
+              class="w-full text-left text-xs bg-dark-800 hover:bg-dark-700/80 border border-slate-700/50 rounded-lg p-2.5 transition flex justify-between items-center"
+            >
+              <span class="truncate pr-2">🟡 "I think your argument lacks facts..."</span>
+              <span class="text-[10px] text-yellow-400 font-semibold bg-yellow-400/10 px-2 py-0.5 rounded-full flex-shrink-0">Borderline</span>
+            </button>
+            <button 
+              onclick="loadPreset('Shut up you idiot! Get out of here before I hurt you.')"
+              class="w-full text-left text-xs bg-dark-800 hover:bg-dark-700/80 border border-slate-700/50 rounded-lg p-2.5 transition flex justify-between items-center"
+            >
+              <span class="truncate pr-2">🔴 "Shut up you idiot! Get out of here..."</span>
+              <span class="text-[10px] text-accent-red font-semibold bg-accent-red/10 px-2 py-0.5 rounded-full flex-shrink-0">Toxic</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Analyze Button -->
+        <button 
+          id="analyze-btn"
+          onclick="analyzeText()"
+          class="w-full py-3 rounded-xl bg-gradient-to-r from-accent-purple to-accent-pink hover:from-accent-purple/90 hover:to-accent-pink/90 text-white font-bold text-sm tracking-wide shadow-lg shadow-accent-purple/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
+        >
+          <span id="btn-text">Predict Toxicity & Attention</span>
+          <svg id="loading-spinner" class="animate-spin h-4 w-4 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+      </section>
+
+      <!-- Results Panel -->
+      <section class="glass-panel rounded-2xl p-6 shadow-xl flex-grow">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-bold font-heading text-slate-200 flex items-center gap-2">
+            <span>📊</span> Toxicity Classifications
+          </h2>
+          <span id="safety-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-accent-emerald/20 text-accent-emerald border border-accent-emerald/30 shadow-sm shadow-accent-emerald/10">SAFE</span>
+        </div>
+
+        <!-- Progress Bars -->
+        <div class="space-y-5" id="results-container">
+          <!-- Toxicity -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Toxicity</span>
+              <span class="font-mono font-bold text-slate-400" id="val-toxicity">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-toxicity" class="bg-gradient-to-r from-accent-red to-orange-500 h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Severe Toxicity -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Severe Toxicity</span>
+              <span class="font-mono font-bold text-slate-400" id="val-severe_toxicity">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-severe_toxicity" class="bg-gradient-to-r from-red-800 to-accent-red h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Obscene -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Obscene</span>
+              <span class="font-mono font-bold text-slate-400" id="val-obscene">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-obscene" class="bg-gradient-to-r from-accent-purple to-accent-pink h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Threat -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Threat</span>
+              <span class="font-mono font-bold text-slate-400" id="val-threat">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-threat" class="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Insult -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Insult</span>
+              <span class="font-mono font-bold text-slate-400" id="val-insult">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-insult" class="bg-gradient-to-r from-accent-pink to-accent-purple h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Identity Attack -->
+          <div class="group">
+            <div class="flex justify-between items-center text-xs mb-1.5">
+              <span class="font-bold text-slate-300">Identity Attack</span>
+              <span class="font-mono font-bold text-slate-400" id="val-identity_attack">0.0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-3.5 p-[2px] border border-slate-800">
+              <div id="bar-identity_attack" class="bg-gradient-to-r from-accent-blue to-accent-purple h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: BERT Explainer and Attention Matrices -->
+    <div class="lg:col-span-7 flex flex-col gap-6">
+      <!-- Explainer Header / Navigation -->
+      <section class="glass-panel rounded-2xl p-6 shadow-xl flex flex-col h-full">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 mb-6 gap-4">
+          <div>
+            <h2 class="text-lg font-bold font-heading text-slate-200 flex items-center gap-2">
+              <span>🧠</span> BERT Architecture Explainer
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Click tokens to inspect architectural components</p>
+          </div>
+          <div class="flex gap-2 text-xs bg-dark-900 p-1.5 rounded-lg border border-slate-700/60 font-semibold self-stretch sm:self-auto">
+            <button 
+              id="tab-heatmap" 
+              onclick="switchTab('heatmap')" 
+              class="px-4 py-1.5 rounded-md bg-accent-purple text-white transition flex-1 sm:flex-initial text-center"
+            >
+              Heatmap
+            </button>
+            <button 
+              id="tab-connections" 
+              onclick="switchTab('connections')" 
+              class="px-4 py-1.5 rounded-md text-slate-400 hover:text-slate-200 transition flex-1 sm:flex-initial text-center"
+            >
+              Interactions
+            </button>
+          </div>
+        </div>
+
+        <!-- Tokenized Sequence Display -->
+        <div class="mb-6">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Input WordPiece Tokens</label>
+          <div class="flex flex-wrap gap-2.5 bg-dark-900/60 p-4 border border-slate-800 rounded-xl" id="token-display">
+            <!-- Tokens rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Tab contents -->
+        <div class="flex-grow flex flex-col justify-center items-center">
+          
+          <!-- Heatmap View -->
+          <div id="view-heatmap" class="w-full overflow-x-auto pb-4 flex justify-center">
+            <div class="relative bg-dark-900/40 p-4 border border-slate-800/80 rounded-xl min-w-max">
+              <table class="border-collapse" id="attention-matrix-table">
+                <!-- Dynamic attention matrix table -->
+              </table>
+            </div>
+          </div>
+
+          <!-- Connections View -->
+          <div id="view-connections" class="w-full hidden">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6 items-stretch">
+              <!-- Left side: Hover List -->
+              <div class="md:col-span-2 flex flex-col gap-2.5 bg-dark-900/60 border border-slate-800 p-4 rounded-xl max-h-[360px] overflow-y-auto">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hover over a token:</span>
+                <div class="flex flex-col gap-2" id="interactive-token-list">
+                  <!-- Token rows -->
+                </div>
+              </div>
+              
+              <!-- Right side: Visual feedback/insights -->
+              <div class="md:col-span-3 bg-dark-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                <div>
+                  <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Attention Distribution</h3>
+                  <div class="h-[180px] overflow-y-auto space-y-2.5 pr-2" id="attention-breakdown">
+                    <p class="text-sm text-slate-400 italic text-center mt-12">Hover over a token on the left to see which tokens it attends to most in this layer.</p>
+                  </div>
+                </div>
+                <div class="pt-4 border-t border-slate-800 mt-4 text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <span class="h-2 w-2 rounded-full bg-accent-pink"></span>
+                  Self-attention helps BERT capture context bidirectionally.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Architecture Feature Modal / Info Card -->
+        <div id="info-card" class="mt-6 p-4 rounded-xl border border-accent-purple/20 bg-accent-purple/5 hidden transition">
+          <div class="flex justify-between items-start mb-2">
+            <h4 class="text-sm font-bold text-accent-purple" id="info-title">Token Information</h4>
+            <button onclick="closeInfoCard()" class="text-xs text-slate-400 hover:text-slate-200">✕</button>
+          </div>
+          <p class="text-xs leading-relaxed text-slate-300" id="info-description">Description will appear here.</p>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // Global variable containing the analysis response
+    let currentData = null;
+    let selectedTokenIndex = null;
+
+    // Dictionary of educational info for BERT tokens
+    const bertEducationalInfo = {
+      "[cls]": {
+        title: "Classification Token [CLS]",
+        description: "The [CLS] token is inserted at the beginning of every sequence. In BERT's architecture, after traversing all self-attention layers, the final hidden state corresponding to this token aggregates representation of the entire sequence. During fine-tuning, this pooled representation is passed to a Linear feed-forward layer (Classification Head) to predict Jigsaw toxicity probabilities."
+      },
+      "[sep]": {
+        title: "Separator Token [SEP]",
+        description: "The [SEP] token is a special boundary marker. It separates multiple sentences in an input sequence. For classification of a single sentence, it is appended to the end. In BERT, it acts as a marker to help structural segments separate and attend to their respective parts."
+      },
+      "##": {
+        title: "WordPiece Subword (## suffix)",
+        description: "BERT uses WordPiece tokenization. If a word is not found in its 30,522-token vocabulary, it is broken down into subwords. Suffixes start with '##' to denote they are attached to a prefix (e.g., 'playing' tokenized to ['play', '##ing']). This technique eliminates out-of-vocabulary (OOV) errors and captures morphological meanings of words."
+      },
+      "default": {
+        title: "WordPiece Token",
+        description: "This is a standard WordPiece token. BERT transforms this token into a 768-dimensional Vector Embedding. These embeddings are combined with Positional Embeddings (which tell the model where the word sits in the sentence) and Segment Embeddings, before being processed by the multi-head self-attention encoder blocks."
+      }
+    };
+
+    // Load initial example on load
+    window.addEventListener('DOMContentLoaded', () => {
+      analyzeText();
+    });
+
+    function loadPreset(text) {
+      document.getElementById('text-input').value = text;
+      analyzeText();
+    }
+
+    function switchTab(tab) {
+      const tabHeatmap = document.getElementById('tab-heatmap');
+      const tabConnections = document.getElementById('tab-connections');
+      const viewHeatmap = document.getElementById('view-heatmap');
+      const viewConnections = document.getElementById('view-connections');
+
+      if (tab === 'heatmap') {
+        tabHeatmap.classList.add('bg-accent-purple', 'text-white');
+        tabHeatmap.classList.remove('text-slate-400', 'hover:text-slate-200');
+        tabConnections.classList.remove('bg-accent-purple', 'text-white');
+        tabConnections.classList.add('text-slate-400', 'hover:text-slate-200');
+
+        viewHeatmap.classList.remove('hidden');
+        viewConnections.classList.add('hidden');
+      } else {
+        tabConnections.classList.add('bg-accent-purple', 'text-white');
+        tabConnections.classList.remove('text-slate-400', 'hover:text-slate-200');
+        tabHeatmap.classList.remove('bg-accent-purple', 'text-white');
+        tabHeatmap.classList.add('text-slate-400', 'hover:text-slate-200');
+
+        viewConnections.classList.remove('hidden');
+        viewHeatmap.classList.add('hidden');
+        renderConnectionsTab();
+      }
+    }
+
+    async function analyzeText() {
+      const text = document.getElementById('text-input').value;
+      const btn = document.getElementById('analyze-btn');
+      const btnText = document.getElementById('btn-text');
+      const spinner = document.getElementById('loading-spinner');
+
+      // UI loading state
+      btn.disabled = true;
+      btnText.textContent = "Analyzing Model...";
+      spinner.classList.remove('hidden');
+      closeInfoCard();
+
+      try {
+        const response = await fetch('/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "Server error occurred");
+        }
+
+        currentData = await response.json();
+        updateToxicityMeters(currentData.predictions);
+        renderTokens(currentData.architecture.tokens);
+        renderAttentionMatrix(currentData.architecture.tokens, currentData.architecture.attention_matrix);
+        
+        // If connections tab is open, update it
+        if (!document.getElementById('view-connections').classList.contains('hidden')) {
+          renderConnectionsTab();
+        }
+
+      } catch (error) {
+        alert("Error: " + error.message);
+        console.error(error);
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = "Predict Toxicity & Attention";
+        spinner.classList.add('hidden');
+      }
+    }
+
+    function updateToxicityMeters(preds) {
+      // Update individual bars and numbers
+      let isToxic = false;
+      const threshold = 0.50; // Jigsaw classification threshold
+
+      for (const [key, val] of Object.entries(preds)) {
+        const percentage = (val * 100).toFixed(1) + "%";
+        const valElem = document.getElementById(`val-${key}`);
+        const barElem = document.getElementById(`bar-${key}`);
+        
+        if (valElem) valElem.textContent = percentage;
+        if (barElem) barElem.style.width = percentage;
+
+        if (key === 'toxicity' && val >= threshold) {
+          isToxic = true;
+        }
+      }
+
+      // Update safety badge
+      const safetyBadge = document.getElementById('safety-badge');
+      if (isToxic) {
+        safetyBadge.textContent = "FLAGGED / TOXIC";
+        safetyBadge.className = "text-xs font-bold px-3 py-1 rounded-full bg-accent-red/20 text-accent-red border border-accent-red/30 shadow-sm shadow-accent-red/10";
+      } else {
+        safetyBadge.textContent = "SAFE";
+        safetyBadge.className = "text-xs font-bold px-3 py-1 rounded-full bg-accent-emerald/20 text-accent-emerald border border-accent-emerald/30 shadow-sm shadow-accent-emerald/10";
+      }
+    }
+
+    function renderTokens(tokens) {
+      const container = document.getElementById('token-display');
+      container.innerHTML = "";
+
+      tokens.forEach((token, index) => {
+        const tokenBtn = document.createElement('button');
+        
+        // Differentiate special tokens vs words vs wordpieces
+        let styling = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 border cursor-pointer ";
+        if (token.toLowerCase() === '[cls]' || token.toLowerCase() === '[sep]') {
+          styling += "bg-accent-purple/20 text-accent-purple border-accent-purple/40 hover:bg-accent-purple/35";
+        } else if (token.startsWith('##')) {
+          styling += "bg-accent-pink/15 text-accent-pink border-accent-pink/30 hover:bg-accent-pink/25";
+        } else {
+          styling += "bg-dark-800 text-slate-200 border-slate-700/60 hover:bg-dark-700 hover:border-slate-600";
+        }
+
+        tokenBtn.className = styling;
+        tokenBtn.innerHTML = token;
+        tokenBtn.onclick = () => showTokenInfo(token);
+        container.appendChild(tokenBtn);
+      });
+    }
+
+    function showTokenInfo(token) {
+      const card = document.getElementById('info-card');
+      const title = document.getElementById('info-title');
+      const desc = document.getElementById('info-description');
+
+      let infoKey = token.toLowerCase();
+      if (infoKey.startsWith('##')) {
+        infoKey = '##';
+      }
+
+      const info = bertEducationalInfo[infoKey] || bertEducationalInfo["default"];
+      title.textContent = info.title + ` ("${token}")`;
+      desc.textContent = info.description;
+      card.classList.remove('hidden');
+    }
+
+    function closeInfoCard() {
+      document.getElementById('info-card').classList.add('hidden');
+    }
+
+    function renderAttentionMatrix(tokens, matrix) {
+      const table = document.getElementById('attention-matrix-table');
+      table.innerHTML = "";
+
+      const n = tokens.length;
+      
+      // 1. Column labels header row
+      const headerRow = document.createElement('tr');
+      
+      // Top left corner cell is empty
+      const emptyCorner = document.createElement('th');
+      emptyCorner.className = "w-14 h-14";
+      headerRow.appendChild(emptyCorner);
+
+      // Add each column label
+      for (let j = 0; j < n; j++) {
+        const colHeader = document.createElement('th');
+        colHeader.className = "text-[10px] text-slate-400 font-bold p-1 max-w-[28px] overflow-visible text-left align-bottom h-14";
+        
+        const labelDiv = document.createElement('div');
+        labelDiv.className = "col-label -translate-x-[4px]";
+        labelDiv.textContent = tokens[j];
+        colHeader.appendChild(labelDiv);
+        headerRow.appendChild(colHeader);
+      }
+      table.appendChild(headerRow);
+
+      // 2. Matrix rows
+      for (let i = 0; i < n; i++) {
+        const row = document.createElement('tr');
+        
+        // Row header label (Query Token)
+        const rowHeader = document.createElement('td');
+        rowHeader.className = "text-[10px] font-bold text-slate-400 text-right pr-2 max-w-[56px] truncate whitespace-nowrap h-7";
+        rowHeader.textContent = tokens[i];
+        row.appendChild(rowHeader);
+
+        // Cells
+        for (let j = 0; j < n; j++) {
+          const cell = document.createElement('td');
+          const val = matrix[i][j];
+          cell.className = "w-7 h-7 border border-dark-900/80 cursor-crosshair transition-all duration-150 hover:scale-110 hover:shadow-lg relative group";
+          cell.style.backgroundColor = `rgba(139, 92, 246, ${val})`; // purple gradient
+          
+          // Tooltip container
+          const tooltip = document.createElement('div');
+          tooltip.className = "absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-dark-950 border border-slate-700 text-slate-100 text-[10px] py-1 px-2 rounded whitespace-nowrap font-sans font-medium pointer-events-none shadow-xl";
+          tooltip.innerHTML = `<span class="text-accent-pink font-semibold">${tokens[i]}</span> attends to <span class="text-accent-blue font-semibold">${tokens[j]}</span>: <strong class="text-slate-100">${(val).toFixed(3)}</strong>`;
+          cell.appendChild(tooltip);
+
+          // Highlight row/column indexes on hover
+          cell.onmouseenter = () => highlightMatrixLine(i, j, true);
+          cell.onmouseleave = () => highlightMatrixLine(i, j, false);
+
+          row.appendChild(cell);
+        }
+        table.appendChild(row);
+      }
+    }
+
+    function highlightMatrixLine(rowIndex, colIndex, isEnter) {
+      const table = document.getElementById('attention-matrix-table');
+      const rows = table.getElementsByTagName('tr');
+      
+      // Highlight row header
+      if (rows[rowIndex + 1]) {
+        const rowHeader = rows[rowIndex + 1].cells[0];
+        if (isEnter) {
+          rowHeader.classList.add('text-accent-pink', 'scale-105');
+          rowHeader.classList.remove('text-slate-400');
+        } else {
+          rowHeader.classList.remove('text-accent-pink', 'scale-105');
+          rowHeader.classList.add('text-slate-400');
+        }
+      }
+
+      // Highlight col header
+      const headers = rows[0].getElementsByTagName('th');
+      if (headers[colIndex + 1]) {
+        if (isEnter) {
+          headers[colIndex + 1].classList.add('text-accent-blue', 'scale-105');
+          headers[colIndex + 1].classList.remove('text-slate-400');
+        } else {
+          headers[colIndex + 1].classList.remove('text-accent-blue', 'scale-105');
+          headers[colIndex + 1].classList.add('text-slate-400');
+        }
+      }
+    }
+
+    function renderConnectionsTab() {
+      if (!currentData) return;
+      const tokens = currentData.architecture.tokens;
+      const matrix = currentData.architecture.attention_matrix;
+      const listContainer = document.getElementById('interactive-token-list');
+      
+      listContainer.innerHTML = "";
+      
+      tokens.forEach((token, index) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left text-xs bg-dark-800 hover:bg-dark-700/80 border border-slate-700/40 rounded-lg p-2 font-mono transition text-slate-300 hover:text-white flex items-center justify-between";
+        btn.innerHTML = `<span>[${index}] ${token}</span> <span class="text-[9px] text-slate-500 font-sans">Hover &rarr;</span>`;
+        
+        btn.onmouseenter = () => highlightConnectionsForToken(index);
+        listContainer.appendChild(btn);
+      });
+    }
+
+    function highlightConnectionsForToken(index) {
+      const tokens = currentData.architecture.tokens;
+      const matrix = currentData.architecture.attention_matrix;
+      const rowWeights = matrix[index];
+
+      // 1. Highlight standard token visualization
+      const tokenDisplay = document.getElementById('token-display');
+      const tokenButtons = tokenDisplay.getElementsByTagName('button');
+      
+      for (let j = 0; j < tokens.length; j++) {
+        if (tokenButtons[j]) {
+          const weight = rowWeights[j];
+          // Make background color opacity proportional to attention weight
+          tokenButtons[j].style.backgroundColor = `rgba(236, 72, 153, ${0.15 + weight * 0.85})`;
+          tokenButtons[j].style.borderColor = `rgba(236, 72, 153, ${0.3 + weight * 0.7})`;
+        }
+      }
+
+      // 2. Build the breakdown details in the card
+      const breakdownContainer = document.getElementById('attention-breakdown');
+      breakdownContainer.innerHTML = "";
+
+      // Rank items by weight
+      const weightedTokens = tokens.map((tok, idx) => ({
+        token: tok,
+        index: idx,
+        weight: rowWeights[idx]
+      })).sort((a, b) => b.weight - a.weight);
+
+      const title = document.createElement('h4');
+      title.className = "text-xs font-bold text-accent-pink mb-2 font-mono";
+      title.innerHTML = `Token "${tokens[index]}" attends to:`;
+      breakdownContainer.appendChild(title);
+
+      weightedTokens.forEach(item => {
+        const pct = (item.weight * 100).toFixed(1) + "%";
+        const row = document.createElement('div');
+        row.className = "flex justify-between items-center text-xs py-1 border-b border-slate-800/40";
+        
+        let labelColor = "text-slate-300";
+        if (item.token.toLowerCase() === '[cls]' || item.token.toLowerCase() === '[sep]') {
+          labelColor = "text-accent-purple font-semibold";
+        } else if (item.token.startsWith('##')) {
+          labelColor = "text-accent-pink font-semibold";
+        }
+        
+        row.innerHTML = `
+          <span class="font-mono ${labelColor}">[${item.index}] ${item.token}</span>
+          <div class="flex items-center gap-2">
+            <div class="w-16 bg-dark-950 rounded-full h-1.5 p-[1px] border border-slate-800">
+              <div class="bg-accent-pink h-full rounded-full" style="width: ${item.weight * 100}%"></div>
+            </div>
+            <span class="font-mono text-[10px] text-slate-400 font-bold">${pct}</span>
+          </div>
+        `;
+        breakdownContainer.appendChild(row);
+      });
+    }
+  </script>
+</body>
+</html>
