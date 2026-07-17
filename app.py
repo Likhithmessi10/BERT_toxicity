@@ -1,4 +1,8 @@
 import os
+# Force offline mode permanently for HuggingFace Transformers and Hub
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 import random
 import torch
 from fastapi import FastAPI, HTTPException
