@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BERT Toxicity & Attention Explainer</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Outfit and Plus Jakarta Sans -->
+  <!-- Tailwind CSS Local (Offline Safe) -->
+  <script src="/static/tailwind.min.js"></script>
+  <!-- Google Fonts: Outfit and Plus Jakarta Sans (Optional Online fallback) -->
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            heading: ['Outfit', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+            heading: ['Outfit', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
           },
           colors: {
             dark: {
@@ -88,7 +88,7 @@
       </div>
       <div class="flex items-center gap-3 text-xs bg-dark-800/90 border border-slate-700/60 rounded-full px-4 py-1.5 font-semibold text-slate-300">
         <span class="h-2 w-2 rounded-full bg-accent-emerald animate-pulse"></span>
-        Detoxify Active Models
+        Detoxify BERT (original) Loaded
       </div>
     </div>
   </header>
@@ -101,23 +101,6 @@
         <h2 class="text-lg font-bold font-heading mb-4 text-slate-200 flex items-center gap-2">
           <span>📝</span> Text Input Analyzer
         </h2>
-        
-        <!-- Model Selection -->
-        <div class="mb-4">
-          <label for="model-select" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Transformer Model</label>
-          <select 
-            id="model-select" 
-            class="w-full bg-dark-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple focus:border-transparent transition"
-            onchange="analyzeText()"
-          >
-            <option value="original" selected>BERT-Base ("original" Jigsaw)</option>
-            <option value="unbiased">RoBERTa-Base ("unbiased" Jigsaw)</option>
-            <option value="multilingual">XLM-RoBERTa ("multilingual" Jigsaw)</option>
-            <option value="original-small">ALBERT-Base ("original-small" Jigsaw)</option>
-            <option value="unbiased-small">ALBERT-Base ("unbiased-small" Jigsaw)</option>
-          </select>
-        </div>
-
         <div class="mb-4">
           <label for="text-input" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Sentence to Evaluate</label>
           <textarea 
@@ -257,7 +240,7 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 mb-6 gap-4">
           <div>
             <h2 class="text-lg font-bold font-heading text-slate-200 flex items-center gap-2">
-              <span>🧠</span> Transformer Architecture Explainer
+              <span>🧠</span> BERT Architecture Explainer
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Click tokens to inspect architectural components</p>
           </div>
@@ -276,54 +259,6 @@
             >
               Interactions
             </button>
-          </div>
-        </div>
-
-        <!-- Real Attention Selection Settings -->
-        <div class="flex flex-wrap gap-3 mb-4 bg-dark-900/40 p-3 border border-slate-800/80 rounded-xl">
-          <div class="flex-1 min-w-[120px]">
-            <label for="layer-select" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Attention Layer</label>
-            <select 
-              id="layer-select" 
-              class="w-full bg-dark-800 border border-slate-700/80 rounded-lg px-3 py-1.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-accent-purple cursor-pointer"
-              onchange="analyzeText()"
-            >
-              <option value="0">Layer 1 (Input-level)</option>
-              <option value="1">Layer 2</option>
-              <option value="2">Layer 3</option>
-              <option value="3">Layer 4</option>
-              <option value="4">Layer 5</option>
-              <option value="5">Layer 6</option>
-              <option value="6">Layer 7</option>
-              <option value="7">Layer 8</option>
-              <option value="8">Layer 9</option>
-              <option value="9">Layer 10</option>
-              <option value="10">Layer 11</option>
-              <option value="11" selected>Layer 12 (Output-level)</option>
-            </select>
-          </div>
-          
-          <div class="flex-1 min-w-[120px]">
-            <label for="head-select" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Attention Head</label>
-            <select 
-              id="head-select" 
-              class="w-full bg-dark-800 border border-slate-700/80 rounded-lg px-3 py-1.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-accent-purple cursor-pointer"
-              onchange="analyzeText()"
-            >
-              <option value="-1" selected>Average (All 12 Heads)</option>
-              <option value="0">Head 1 (Local context)</option>
-              <option value="1">Head 2</option>
-              <option value="2">Head 3</option>
-              <option value="3">Head 4</option>
-              <option value="4">Head 5</option>
-              <option value="5">Head 6</option>
-              <option value="6">Head 7</option>
-              <option value="7">Head 8</option>
-              <option value="8">Head 9</option>
-              <option value="9">Head 10</option>
-              <option value="10">Head 11</option>
-              <option value="11">Head 12</option>
-            </select>
           </div>
         </div>
 
@@ -394,39 +329,23 @@
     let currentData = null;
     let selectedTokenIndex = null;
 
-    // Dictionary of educational info for BERT/RoBERTa/SentencePiece tokens
+    // Dictionary of educational info for BERT tokens
     const bertEducationalInfo = {
       "[cls]": {
-        title: "Classification Token [CLS] (BERT)",
-        description: "The [CLS] token is inserted at the beginning of every sequence in BERT and ALBERT. After passing through all self-attention layers, the final hidden state of this token acts as an aggregated representation of the entire sequence. In fine-tuning, this representation is fed into the Linear Classification head to predict toxicity probabilities."
+        title: "Classification Token [CLS]",
+        description: "The [CLS] token is inserted at the beginning of every sequence. In BERT's architecture, after traversing all self-attention layers, the final hidden state corresponding to this token aggregates representation of the entire sequence. During fine-tuning, this pooled representation is passed to a Linear feed-forward layer (Classification Head) to predict Jigsaw toxicity probabilities."
       },
       "[sep]": {
-        title: "Separator Token [SEP] (BERT)",
-        description: "The [SEP] token is a boundary marker in BERT and ALBERT. It indicates the end of a sentence or sequence, helping the model distinguish between different input segments."
-      },
-      "<s>": {
-        title: "Start of Sequence Token <s> (RoBERTa / XLM-R)",
-        description: "Equivalent to BERT's [CLS] token. RoBERTa and XLM-RoBERTa use <s> to mark the beginning of a sequence. The final hidden state of this token represents the sentence-level embedding used for classification."
-      },
-      "</s>": {
-        title: "End of Sequence Token </s> (RoBERTa / XLM-R)",
-        description: "Equivalent to BERT's [SEP] token. RoBERTa and XLM-RoBERTa use </s> to mark the end of a sequence or segment boundaries."
+        title: "Separator Token [SEP]",
+        description: "The [SEP] token is a special boundary marker. It separates multiple sentences in an input sequence. For classification of a single sentence, it is appended to the end. In BERT, it acts as a marker to help structural segments separate and attend to their respective parts."
       },
       "##": {
         title: "WordPiece Subword (## suffix)",
-        description: "BERT and ALBERT use WordPiece tokenization. If a word is not found in the vocabulary, it is split into subwords. Suffixes start with '##' to denote they are attached to a prefix (e.g., 'playing' -> ['play', '##ing']). This eliminates out-of-vocabulary (OOV) errors and captures morphological meanings."
-      },
-      "Ġ": {
-        title: "RoBERTa Space Marker (Ġ)",
-        description: "RoBERTa uses Byte-Level BPE tokenization. The special character 'Ġ' (capital G with dot above) represents a space prefix. This allows the model to treat spaces as part of the tokenization process and distinguish between words like 'super' and ' super' without losing whitespace context."
-      },
-      " ": {
-        title: "SentencePiece Space Marker ( )",
-        description: "XLM-RoBERTa and ALBERT use SentencePiece tokenization, which treats the input text as a raw stream of characters and represents space boundaries using a special lower block character ( )."
+        description: "BERT uses WordPiece tokenization. If a word is not found in its 30,522-token vocabulary, it is broken down into subwords. Suffixes start with '##' to denote they are attached to a prefix (e.g., 'playing' tokenized to ['play', '##ing']). This technique eliminates out-of-vocabulary (OOV) errors and captures morphological meanings of words."
       },
       "default": {
-        title: "WordPiece/BPE Token",
-        description: "This is a standard subword token. The model transforms this token into a vector embedding, adds position information (Positional Embedding), and processes it through the multi-head self-attention encoder blocks to capture context."
+        title: "WordPiece Token",
+        description: "This is a standard WordPiece token. BERT transforms this token into a 768-dimensional Vector Embedding. These embeddings are combined with Positional Embeddings (which tell the model where the word sits in the sentence) and Segment Embeddings, before being processed by the multi-head self-attention encoder blocks."
       }
     };
 
@@ -468,17 +387,13 @@
 
     async function analyzeText() {
       const text = document.getElementById('text-input').value;
-      const model_name = document.getElementById('model-select').value;
-      const layer = parseInt(document.getElementById('layer-select').value);
-      const head = parseInt(document.getElementById('head-select').value);
-      
       const btn = document.getElementById('analyze-btn');
       const btnText = document.getElementById('btn-text');
       const spinner = document.getElementById('loading-spinner');
 
       // UI loading state
       btn.disabled = true;
-      btnText.textContent = "Running Transformer...";
+      btnText.textContent = "Analyzing Model...";
       spinner.classList.remove('hidden');
       closeInfoCard();
 
@@ -488,7 +403,7 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ text, model_name, layer, head }),
+          body: JSON.stringify({ text }),
         });
 
         if (!response.ok) {
@@ -501,9 +416,6 @@
         renderTokens(currentData.architecture.tokens);
         renderAttentionMatrix(currentData.architecture.tokens, currentData.architecture.attention_matrix);
         
-        // Update layer and head dropdown options depending on model output parameters
-        updateDropdownsLimits(currentData.architecture.num_layers, currentData.architecture.num_heads, layer, head);
-
         // If connections tab is open, update it
         if (!document.getElementById('view-connections').classList.contains('hidden')) {
           renderConnectionsTab();
@@ -516,49 +428,6 @@
         btn.disabled = false;
         btnText.textContent = "Predict Toxicity & Attention";
         spinner.classList.add('hidden');
-      }
-    }
-
-    function updateDropdownsLimits(layersCount, headsCount, currentLayer, currentHead) {
-      const layerSelect = document.getElementById('layer-select');
-      const headSelect = document.getElementById('head-select');
-
-      // Update layer dropdown if length changed
-      if (layerSelect.options.length !== layersCount) {
-        layerSelect.innerHTML = "";
-        for (let i = 0; i < layersCount; i++) {
-          const opt = document.createElement('option');
-          opt.value = i;
-          let label = `Layer ${i + 1}`;
-          if (i === 0) label += " (Input-level)";
-          if (i === Math.floor(layersCount / 2)) label += " (Mid-level)";
-          if (i === layersCount - 1) label += " (Output-level)";
-          opt.textContent = label;
-          if (i === currentLayer || (currentLayer >= layersCount && i === layersCount - 1)) {
-            opt.selected = true;
-          }
-          layerSelect.appendChild(opt);
-        }
-      }
-
-      // Update head dropdown if length changed
-      if (headSelect.options.length !== (headsCount + 1)) {
-        headSelect.innerHTML = "";
-        const avgOpt = document.createElement('option');
-        avgOpt.value = -1;
-        avgOpt.textContent = `Average (All ${headsCount} Heads)`;
-        avgOpt.selected = (currentHead === -1);
-        headSelect.appendChild(avgOpt);
-
-        for (let i = 0; i < headsCount; i++) {
-          const opt = document.createElement('option');
-          opt.value = i;
-          opt.textContent = `Head ${i + 1}`;
-          if (i === currentHead) {
-            opt.selected = true;
-          }
-          headSelect.appendChild(opt);
-        }
       }
     }
 
@@ -600,11 +469,9 @@
         
         // Differentiate special tokens vs words vs wordpieces
         let styling = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 border cursor-pointer ";
-        const lToken = token.toLowerCase();
-        
-        if (lToken === '[cls]' || lToken === '[sep]' || lToken === '<s>' || lToken === '</s>') {
+        if (token.toLowerCase() === '[cls]' || token.toLowerCase() === '[sep]') {
           styling += "bg-accent-purple/20 text-accent-purple border-accent-purple/40 hover:bg-accent-purple/35";
-        } else if (token.startsWith('##') || token.startsWith('Ġ') || token.startsWith(' ')) {
+        } else if (token.startsWith('##')) {
           styling += "bg-accent-pink/15 text-accent-pink border-accent-pink/30 hover:bg-accent-pink/25";
         } else {
           styling += "bg-dark-800 text-slate-200 border-slate-700/60 hover:bg-dark-700 hover:border-slate-600";
@@ -625,10 +492,6 @@
       let infoKey = token.toLowerCase();
       if (infoKey.startsWith('##')) {
         infoKey = '##';
-      } else if (infoKey.startsWith('Ġ')) {
-        infoKey = 'Ġ';
-      } else if (infoKey.startsWith(' ')) {
-        infoKey = ' ';
       }
 
       const info = bertEducationalInfo[infoKey] || bertEducationalInfo["default"];
@@ -683,12 +546,12 @@
           const cell = document.createElement('td');
           const val = matrix[i][j];
           cell.className = "w-7 h-7 border border-dark-900/80 cursor-crosshair transition-all duration-150 hover:scale-110 hover:shadow-lg relative group";
-          cell.style.backgroundColor = `rgba(139, 92, 246, ${val * 1.5})`; // scaled purple gradient for better visibility
+          cell.style.backgroundColor = `rgba(139, 92, 246, ${val})`; // purple gradient
           
           // Tooltip container
           const tooltip = document.createElement('div');
           tooltip.className = "absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-dark-950 border border-slate-700 text-slate-100 text-[10px] py-1 px-2 rounded whitespace-nowrap font-sans font-medium pointer-events-none shadow-xl";
-          tooltip.innerHTML = `<span class="text-accent-pink font-semibold">${tokens[i]}</span> attends to <span class="text-accent-blue font-semibold">${tokens[j]}</span>: <strong class="text-slate-100">${(val).toFixed(4)}</strong>`;
+          tooltip.innerHTML = `<span class="text-accent-pink font-semibold">${tokens[i]}</span> attends to <span class="text-accent-blue font-semibold">${tokens[j]}</span>: <strong class="text-slate-100">${(val).toFixed(3)}</strong>`;
           cell.appendChild(tooltip);
 
           // Highlight row/column indexes on hover
@@ -783,15 +646,14 @@
       breakdownContainer.appendChild(title);
 
       weightedTokens.forEach(item => {
-        const pct = (item.weight * 100).toFixed(2) + "%";
+        const pct = (item.weight * 100).toFixed(1) + "%";
         const row = document.createElement('div');
         row.className = "flex justify-between items-center text-xs py-1 border-b border-slate-800/40";
         
         let labelColor = "text-slate-300";
-        const lToken = item.token.toLowerCase();
-        if (lToken === '[cls]' || lToken === '[sep]' || lToken === '<s>' || lToken === '</s>') {
+        if (item.token.toLowerCase() === '[cls]' || item.token.toLowerCase() === '[sep]') {
           labelColor = "text-accent-purple font-semibold";
-        } else if (item.token.startsWith('##') || item.token.startsWith('Ġ') || item.token.startsWith(' ')) {
+        } else if (item.token.startsWith('##')) {
           labelColor = "text-accent-pink font-semibold";
         }
         
